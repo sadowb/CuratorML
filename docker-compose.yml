@@ -1,0 +1,56 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-manga_db}
+      POSTGRES_USER: ${POSTGRES_USER:-manga}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-manga} -d ${POSTGRES_DB:-manga_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: manga-translation-api
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      STORAGE_ROOT: /app/backend/storage
+      CORS_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
+      TRANSLATION_PROVIDER_MODE: compatible_local
+      TRANSLATION_BASE_URL: http://host.docker.internal:8033/v1
+      TRANSLATION_MEMORY_EMBEDDING_BASE_URL: http://host.docker.internal:8033/v1
+      LLM_INFERENCE_BASE_URL: http://host.docker.internal:8033/v1
+      INFERENCE_MODE: remote
+      INFERENCE_REMOTE_URL: http://host.docker.internal:8001
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - backend-storage:/app/backend/storage
+      - ./backend/models:/app/backend/models
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent --show-error http://127.0.0.1:8000/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  frontend:
+    image: manga-translation-ui
+    build:
+      context: ./frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8081:80"
+
+volumes:
+  postgres-data:
+  backend-storage:

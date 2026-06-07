@@ -1,0 +1,80 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node / frontend
+node_modules/
+dist/
+build/
+.cache/
+.vite/
+.next/
+
+# Docker/runtime state
+postgres-data/
+backend/storage/
+storage/
+*.db
+*.sqlite
+*.sqlite3
+
+# ML/model weights: keep out of GitHub; download via scripts/download-models.sh
+*.pt
+*.pth
+*.onnx
+*.safetensors
+*.ckpt
+*.bin
+backend/app/services/ml/
+backend/models/
+
+# Docs, notes, generated evidence, temp exports
+*.md
+*.txt
+!backend/requirements.txt
+!backend/requirements-dev.txt
+!backend/requirements-inference.txt
+*.pdf
+*.pptx
+*.docx
+*.pen
+*.drawio
+*.puml
+*.patch
+report_refinement_workspace/
+.hermes/
+scratch*
+patch_*.py
+sequence_render.html
+curator_innovation_poster.html
+
+# JSON policy: ignore JSON by default, except required frontend build config/package files
+*.json
+!frontend/package.json
+!frontend/package-lock.json
+!frontend/tsconfig.json
+!frontend/tsconfig.app.json
+!frontend/tsconfig.node.json
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
+*.code-workspace
