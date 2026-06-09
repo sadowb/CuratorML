@@ -36,7 +36,8 @@ async def infer_mask(image: UploadFile = File(...)) -> MaskInferenceResponse:
 
     tmp_dir = settings.storage_root_path / "tmp"
     tmp_dir.mkdir(parents=True, exist_ok=True)
-    tmp_path = tmp_dir / f"inference-{Path(image.filename or 'upload.png').name}"
+    safe_name = Path(image.filename or "upload.png").name
+    tmp_path = tmp_dir / f"inference-{uuid.uuid4().hex}-{safe_name}"
     tmp_path.write_bytes(data)
 
     try:

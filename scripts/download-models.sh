@@ -6,9 +6,23 @@ PROJECT_ROOT=$(dirname "$SCRIPT_DIR")
 
 ML_DIR="$PROJECT_ROOT/backend/app/services/ml"
 OCR_DIR="$PROJECT_ROOT/backend/models/manga-ocr-2025-onnx"
+YOLO_MODEL_RELATIVE_PATH="backend/app/services/ml/best.pt"
+YOLO_MODEL_DEST_PATH="$PROJECT_ROOT/$YOLO_MODEL_RELATIVE_PATH"
+LEGACY_YOLO_MODEL_RELATIVE_PATH="backend/app/services/ml/final_best_with_split_logic.pt"
+LEGACY_YOLO_MODEL_DEST_PATH="$PROJECT_ROOT/$LEGACY_YOLO_MODEL_RELATIVE_PATH"
 
-# Override these when the project model is moved to Hugging Face.
-INPAINT_MODEL_URL=${INPAINT_MODEL_URL:-"https://github.com/sadowb/CuratorML/releases/download/v1.0/final_best_with_split_logic.pt"}
+# Default public YOLO segmentation weights. The Hugging Face repository also
+# contains last.pt; best.pt is the default for CuratorML.
+DEFAULT_YOLO_MODEL_URL="https://huggingface.co/ShadowB/Manga109-panel-balloon-text-yolov26-segmentation/resolve/main/best.pt?download=1"
+
+if [[ -n "${YOLO_MODEL_URL:-}" ]]; then
+  ACTIVE_YOLO_MODEL_URL="$YOLO_MODEL_URL"
+elif [[ -n "${INPAINT_MODEL_URL:-}" ]]; then
+  ACTIVE_YOLO_MODEL_URL="$INPAINT_MODEL_URL"
+  echo "⚠ INPAINT_MODEL_URL is deprecated; use YOLO_MODEL_URL for YOLO segmentation weights."
+else
+  ACTIVE_YOLO_MODEL_URL="$DEFAULT_YOLO_MODEL_URL"
+fi
 
 # MangaOCR ONNX model repository used by manga-ocr-torchless / local OCR loading.
 MANGA_OCR_REPO=${MANGA_OCR_REPO:-"https://huggingface.co/l0wgear/manga-ocr-2025-onnx/resolve/main"}
@@ -26,7 +40,7 @@ MANGA_OCR_FILES=(
   "vocab.txt"
 )
 
-echo "Downloading model files for Manga Translation UI..."
+echo "Downloading model files for CuratorML..."
 
 mkdir -p "$ML_DIR" "$OCR_DIR"
 
@@ -51,9 +65,61 @@ download_if_missing() {
   fi
 }
 
-download_if_missing \
-  "$INPAINT_MODEL_URL" \
-  "$ML_DIR/final_best_with_split_logic.pt"
+download_yolo_model() {
+  local dest="$1"
+  local filename
+  filename=$(basename "$dest")
+
+  if [[ -f "$dest" ]]; then
+    echo "✓ ${filename} already exists"
+    return 0
+  fi
+
+  echo "Downloading ${filename}..."
+  if curl --fail --location --progress-bar --max-time 300 -o "$dest" "$ACTIVE_YOLO_MODEL_URL" && [[ -s "$dest" ]]; then
+    return 0
+  fi
+
+  rm -f "$dest"
+
+  if [[ -f "$LEGACY_YOLO_MODEL_DEST_PATH" ]]; then
+    cat >&2 <<EOF
+⚠ Failed to download ${filename}, but legacy YOLO weights exist at:
+  ${LEGACY_YOLO_MODEL_RELATIVE_PATH}
+
+The inference service can still use that legacy path for backwards
+compatibility. New installs should use the Hugging Face best.pt default.
+EOF
+    return 0
+  fi
+
+  cat >&2 <<EOF
+✗ Failed to download ${filename} from:
+  ${ACTIVE_YOLO_MODEL_URL}
+
+The YOLO segmentation model is required for ML auto-detection. The repository
+keeps model weights out of Git. The default public source is Hugging Face:
+  ${DEFAULT_YOLO_MODEL_URL}
+
+Resolve this using one of these options:
+  1. Rerun with a reachable direct URL:
+     YOLO_MODEL_URL=<direct-url> bash scripts/download-models.sh
+  2. Manually place the YOLO weights at:
+     ${YOLO_MODEL_RELATIVE_PATH}
+     (resolved path: ${dest})
+  3. Existing installs may continue using the legacy path:
+     ${LEGACY_YOLO_MODEL_RELATIVE_PATH}
+
+INPAINT_MODEL_URL is still accepted as a deprecated alias for YOLO_MODEL_URL,
+but this file is used only for YOLO segmentation; cleanup/inpainting uses
+traditional OpenCV processing.
+EOF
+  return 1
+}
+
+if ! download_yolo_model "$YOLO_MODEL_DEST_PATH"; then
+  exit 1
+fi
 
 for file in "${MANGA_OCR_FILES[@]}"; do
   download_if_missing \

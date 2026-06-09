@@ -1,15 +1,6 @@
-from app.services.chapter_service import ChapterService
-from app.services.page_service import PageService
-from app.services.project_service import ProjectService
-from app.services.storage_service import StorageService
-from app.services.translation_memory_service import TranslationMemoryService
-from app.services.upload_service import UploadService
+"""Service package namespace.
 
-__all__ = [
-    "ProjectService",
-    "ChapterService",
-    "UploadService",
-    "PageService",
-    "StorageService",
-    "TranslationMemoryService",
-]
+Keep this module side-effect free so lightweight subpackages such as
+``app.services.ml`` can be imported by the host inference process without
+loading database-backed service modules.
+"""

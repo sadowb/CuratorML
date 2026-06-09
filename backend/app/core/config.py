@@ -7,6 +7,8 @@ from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
+DEFAULT_YOLO_MODEL_PATH = Path("backend/app/services/ml/best.pt")
+LEGACY_YOLO_MODEL_PATH = Path("backend/app/services/ml/final_best_with_split_logic.pt")
 
 
 class Settings(BaseSettings):
@@ -24,15 +26,13 @@ class Settings(BaseSettings):
     storage_root: Path = Path("./storage")
     max_upload_size_mb: int = 25
     sql_echo: bool = False
-    # first model path to check the quality of the uploaded model, then the second one is for the actual inference
-    #app/services/ml/best.pt
-    #app/services/ml/final_best_manga_3class_plain.pt
-    # YOLO model configuration
-    yolo_model_path: Path = Path("backend/app/services/ml/final_best_with_split_logic.pt")
+    # YOLO segmentation model configuration
+    yolo_model_path: Path = DEFAULT_YOLO_MODEL_PATH
     yolo_confidence_threshold: float = Field(default=0.25, ge=0.0, le=1.0)
     yolo_iou_threshold: float = Field(default=0.45, ge=0.0, le=1.0)
     yolo_inference_size: int = Field(default=1216, ge=64)
     yolo_max_detections: int = Field(default=120, ge=1)
+    yolo_device: str = "auto"
 
     # Text handling
     text_use_detection_box: bool = True
@@ -131,6 +131,16 @@ class Settings(BaseSettings):
             return [item.strip() for item in value.split(",") if item.strip()]
         raise ValueError("Invalid CORS_ORIGINS format")
 
+    @field_validator("yolo_device", mode="before")
+    @classmethod
+    def normalize_yolo_device(cls, value: str | None) -> str:
+        device = "auto" if value is None else str(value).strip().lower()
+        if not device:
+            device = "auto"
+        if device not in {"auto", "cpu", "cuda", "mps"}:
+            raise ValueError("YOLO_DEVICE must be one of: auto, cpu, cuda, mps")
+        return device
+
     @field_validator("translation_base_urls", mode="before")
     @classmethod
     def parse_translation_base_urls(cls, value: list[str] | str) -> list[str]:
@@ -160,6 +170,16 @@ class Settings(BaseSettings):
         for path in candidate_paths:
             if path.exists():
                 return path.resolve()
+
+        if self.yolo_model_path == DEFAULT_YOLO_MODEL_PATH:
+            legacy_candidate_paths = [
+                LEGACY_YOLO_MODEL_PATH,
+                BACKEND_DIR / LEGACY_YOLO_MODEL_PATH,
+                BACKEND_DIR.parent / LEGACY_YOLO_MODEL_PATH,
+            ]
+            for path in legacy_candidate_paths:
+                if path.exists():
+                    return path.resolve()
 
         return (BACKEND_DIR / self.yolo_model_path).resolve()
 

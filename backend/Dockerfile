@@ -7,12 +7,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app/backend
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential curl libgl1 libglib2.0-0 \
+    && apt-get install -y --no-install-recommends build-essential curl libgl1 libglib2.0-0 nodejs npm \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt requirements-dev.txt ./
 RUN pip install --upgrade pip \
     && pip install -r requirements.txt
+
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
 COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini

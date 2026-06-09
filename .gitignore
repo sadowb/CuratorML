@@ -42,12 +42,28 @@ storage/
 *.safetensors
 *.ckpt
 *.bin
-backend/app/services/ml/
 backend/models/
+# Keep ML service source trackable while ignoring downloaded artifacts there.
+!backend/app/services/ml/
+!backend/app/services/ml/**/*.py
+backend/app/services/ml/**/*.pt
+backend/app/services/ml/**/*.pth
+backend/app/services/ml/**/*.onnx
+backend/app/services/ml/**/*.safetensors
+backend/app/services/ml/**/*.ckpt
+backend/app/services/ml/**/*.bin
 
 # Docs, notes, generated evidence, temp exports
 *.md
 *.txt
+!README.md
+!docs/
+!docs/**/*.md
+!docs/assets/
+!docs/assets/*.png
+!docs/assets/*.jpg
+!docs/assets/*.jpeg
+!docs/assets/*.webp
 !backend/requirements.txt
 !backend/requirements-dev.txt
 !backend/requirements-inference.txt
@@ -72,6 +88,8 @@ curator_innovation_poster.html
 !frontend/tsconfig.json
 !frontend/tsconfig.app.json
 !frontend/tsconfig.node.json
+!backend/package.json
+!backend/package-lock.json
 
 # OS/editor
 .DS_Store

@@ -4,11 +4,13 @@ import base64
 import binascii
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
 import cv2
 import numpy as np
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.models.page_file import PageFile
 from app.models.page_region import PageRegion
 from app.models.pipeline_run import PipelineRun
@@ -308,9 +310,12 @@ class PageService:
         if not resolved_image_path.exists():
             raise ValueError("Source image file not found in storage")
 
-        from .ml.yolo_inference_service import run_inference
+        if settings.inference_mode == "local":
+            from .ml.yolo_inference_service import run_inference
 
-        detections = run_inference(str(resolved_image_path))
+            detections = run_inference(str(resolved_image_path))
+        else:
+            detections = await self._call_remote_mask_inference(str(resolved_image_path))
 
         detection_outs = [
             DetectionOut(
@@ -361,6 +366,30 @@ class PageService:
         return MaskInferenceResponse(
             pipeline_run_id=pipeline_run.id,
             page_id=page.id,
-            stage="mask_inference_completed",
+            stage="mask_inference",
             detections=detection_outs,
         )
+
+    async def _call_remote_mask_inference(self, image_path: str) -> list[dict]:
+        """Call the standalone YOLO inference service used by Docker deployments."""
+        import httpx
+
+        timeout = httpx.Timeout(settings.inference_timeout_seconds, connect=10.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            with open(image_path, "rb") as f:
+                response = await client.post(
+                    f"{settings.inference_remote_url}/infer/mask_inference",
+                    files={"image": (Path(image_path).name, f, "image/png")},
+                )
+        response.raise_for_status()
+        payload = response.json()
+        return [
+            {
+                "id": item["id"],
+                "region_kind": item["region_kind"],
+                "box": item["box"],
+                "conf": item["conf"],
+                "mask": item["mask"],
+            }
+            for item in payload.get("detections", [])
+        ]

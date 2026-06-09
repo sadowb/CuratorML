@@ -18,15 +18,20 @@ services:
     build:
       context: ./backend
     environment:
-      DATABASE_URL: ${DATABASE_URL}
-      STORAGE_ROOT: /app/backend/storage
-      CORS_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
-      TRANSLATION_PROVIDER_MODE: compatible_local
-      TRANSLATION_BASE_URL: http://host.docker.internal:8033/v1
-      TRANSLATION_MEMORY_EMBEDDING_BASE_URL: http://host.docker.internal:8033/v1
-      LLM_INFERENCE_BASE_URL: http://host.docker.internal:8033/v1
-      INFERENCE_MODE: remote
-      INFERENCE_REMOTE_URL: http://host.docker.internal:8001
+      DATABASE_URL: "${DATABASE_URL}"
+      STORAGE_ROOT: "${STORAGE_ROOT:-/app/backend/storage}"
+      CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}"
+      TRANSLATION_PROVIDER_MODE: "${TRANSLATION_PROVIDER_MODE:-compatible_local}"
+      TRANSLATION_BASE_URL: "${TRANSLATION_BASE_URL:-http://model-runner.docker.internal/engines/v1}"
+      TRANSLATION_MODEL: "${TRANSLATION_MODEL:-local-model}"
+      TRANSLATION_API_KEY: "${TRANSLATION_API_KEY:-}"
+      TRANSLATION_MEMORY_EMBEDDING_BASE_URL: "${TRANSLATION_MEMORY_EMBEDDING_BASE_URL:-http://model-runner.docker.internal/engines/v1}"
+      TRANSLATION_MEMORY_EMBEDDING_MODEL: "${TRANSLATION_MEMORY_EMBEDDING_MODEL:-local-embedding-model}"
+      TRANSLATION_MEMORY_EMBEDDING_API_KEY: "${TRANSLATION_MEMORY_EMBEDDING_API_KEY:-}"
+      LLM_INFERENCE_BASE_URL: "${LLM_INFERENCE_BASE_URL:-http://model-runner.docker.internal/engines/v1}"
+      LLM_INFERENCE_API_KEY: "${LLM_INFERENCE_API_KEY:-not-needed-for-local}"
+      INFERENCE_MODE: "${INFERENCE_MODE:-remote}"
+      INFERENCE_REMOTE_URL: "${INFERENCE_REMOTE_URL:-http://host.docker.internal:8001}"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

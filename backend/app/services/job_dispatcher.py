@@ -3,8 +3,9 @@
 Supports two execution modes controlled by ``settings.inference_mode``:
 
 * **local** — wraps the blocking ML call in ``asyncio.to_thread()`` so the
-  FastAPI event loop stays free.  The YOLO model (and future OCR / inpainting
-  models) run in the default ``ThreadPoolExecutor``.
+  FastAPI event loop stays free.  YOLO segmentation and OCR work run in the
+  default ``ThreadPoolExecutor``; inpainting cleanup is traditional mask/OpenCV
+  processing, not a learned model.
 * **remote** — forwards the request to an external inference server via
   ``httpx`` (e.g. a GPU box, Google Colab, cloud VM).
 

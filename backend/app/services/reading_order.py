@@ -299,6 +299,32 @@ def _is_likely_double_page_spread(image_shape: tuple[int, int]) -> bool:
     return (width / height) >= DOUBLE_PAGE_MIN_ASPECT_RATIO
 
 
+def _panel_box(panel: ReadingRegion | PageRegion) -> Box | None:
+    existing_box = getattr(panel, "box", None)
+    if isinstance(existing_box, Box):
+        return existing_box
+
+    bbox = getattr(panel, "bbox_json", None)
+    if isinstance(bbox, list) and len(bbox) == 4:
+        return Box.from_list(bbox)
+    if isinstance(bbox, dict):
+        if {"x1", "y1", "x2", "y2"}.issubset(bbox):
+            return Box.from_list([bbox["x1"], bbox["y1"], bbox["x2"], bbox["y2"]])
+        if {"left", "top", "right", "bottom"}.issubset(bbox):
+            return Box.from_list([bbox["left"], bbox["top"], bbox["right"], bbox["bottom"]])
+
+    polygon = getattr(panel, "polygon_json", None)
+    if polygon:
+        try:
+            xs = [float(point[0]) for point in polygon]
+            ys = [float(point[1]) for point in polygon]
+        except (TypeError, ValueError, IndexError):
+            return None
+        return Box(min(xs), min(ys), max(xs), max(ys))
+
+    return None
+
+
 def _partition_panels_for_double_page_spread(
     panels: List[ReadingRegion],
     image_shape: tuple[int, int],
@@ -312,22 +338,26 @@ def _partition_panels_for_double_page_spread(
     if len(panels) < 2 or not _is_likely_double_page_spread(image_shape):
         return None
 
-    min_x = min(panel.box.x1 for panel in panels)
-    max_x = max(panel.box.x2 for panel in panels)
+    panel_boxes = [(panel, _panel_box(panel)) for panel in panels]
+    if any(box is None for _, box in panel_boxes):
+        return None
+
+    min_x = min(box.x1 for _, box in panel_boxes if box is not None)
+    max_x = max(box.x2 for _, box in panel_boxes if box is not None)
     span = max_x - min_x
     if span <= 0.0:
         return None
 
     seam_x = min_x + (span / 2.0)
-    crossing = [panel for panel in panels if panel.box.x1 < seam_x < panel.box.x2]
+    crossing = [(panel, box) for panel, box in panel_boxes if box is not None and box.x1 < seam_x < box.x2]
     if crossing:
-        if any((panel.box.width / span) >= DOUBLE_PAGE_HUGE_PANEL_RATIO for panel in crossing):
+        if any((box.width / span) >= DOUBLE_PAGE_HUGE_PANEL_RATIO for _, box in crossing):
             return None
         if (len(crossing) / len(panels)) > DOUBLE_PAGE_MAX_CROSSING_RATIO:
             return None
 
-    right_page = [panel for panel in panels if panel.box.cx >= seam_x]
-    left_page = [panel for panel in panels if panel.box.cx < seam_x]
+    right_page = [panel for panel, box in panel_boxes if box is not None and box.cx >= seam_x]
+    left_page = [panel for panel, box in panel_boxes if box is not None and box.cx < seam_x]
     if not right_page or not left_page:
         return None
 
